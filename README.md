@@ -21,3 +21,20 @@
 - Pour le technicien: Erreurs sur la création d’une VM
 - Pour le demandeur: Rapport sur ce qui a été réalisé
 - Pour le responsable: Rapport résumé toutes les créations de VMs
+
+
+### Notes
+
+make a credentials.ps1 with the following lines
+
+```
+$global:USER = 'esxi user name'
+$global:PASSWORD = 'esxi user password'
+$global:SERVER = 'esxi ip or hostname if dns is set'
+$global:SERVICE_ACCOUNT_EMAIL_ADDRESS = "email address" 
+$global:MANAGER_EMAIL_ADDRESS = "email address"
+$global:REQUESTER_EMAIL_ADDRESS = "email address"
+$global:TECHNICIAN_EMAIL_ADDRESS = "email address"
+```
+
+For help on how to setup you Gmail account to send email through the script follow this [post](https://support.google.com/mail/answer/185833)
