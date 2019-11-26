@@ -1,0 +1,74 @@
+@startuml
+skinparam defaultFontName Comic Sans MS
+skinparam ArrowColor Black
+
+skinparam ActivityBackgroundColor White
+skinparam ActivityBorderColor Black
+skinparam activityDiamondBackgroundColor White
+skinparam activityDiamondFontColor Orange
+skinparam activityDiamondBorderColor Black
+skinparam ActivityFontStyle Bold
+
+skinparam NoteBorderColor Black
+skinparam NoteBackgroundColor White
+
+skinparam Handwritten true
+
+title Create VM Process
+
+start
+note left :each action implies a log entry before\nand after the action or if it fails
+:load PowerCLI;
+if(error) then(no)
+    -[#Red]->
+    :send mail
+    to technician;
+    stop
+else(yes)
+    -[#Green]->
+    :connect
+    VI-server;
+    if(error) then(no)
+        -[#Red]->
+        :send mail
+        to technician;
+        stop
+    else(yes)
+        -[#Green]->
+        :load csv;
+        if(error) then(no)
+            -[#Red]->
+            :send mail
+            to technician;
+            stop
+        else(yes)
+            -[#Green]->
+            repeat
+                :parse csv;
+                :prompt to confim
+                vm creation;
+                if(user answer) then(yes)
+                    -[#Green]->
+                    :create vm;
+                    if (success) then(yes)
+                        -[#Green]->
+                        :send mail
+                        to client;
+                    else(no)
+                        -[#Red]->
+                        :send mail
+                        to technician;
+                    endif
+                else(no)
+                    -[#Red]->
+                    :skip vm;
+                endif
+            repeat while (not csv end)
+            :send statistical
+            report to manager
+            and technician;
+            stop
+        endif
+    endif
+endif
+@enduml
