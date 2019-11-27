@@ -2,7 +2,17 @@
 
 ## TP1 virtualisation automation on VMware
 
-Making of a powershell script to automate the creation of 10 VM's
+Making of a powershell script to automate the creation of 10 VM's using PowerCLI (version 6.3).
+
+## PREREQUISITES
+
+> :warning: [!WARNING] You must have the following architecture:
+  
+- 2 ESXI setup (static ip...)
+- a freenas server with at least on volume shared
+- a VCenter server setup with the following:
+  - a host cluster containing both ESXI
+  - a storage cluster containing the shared volumes 
 
 ### Make a VM with the command New-VM with the following parameters:
 
@@ -26,11 +36,17 @@ Making of a powershell script to automate the creation of 10 VM's
 
 ### Notes
 
+passwords for esxi connexion and gmail must be entered in an encrypted text file using the following commands:
+
+```ps1
+(get-credential).password | ConvertFrom-SecureString | set-content "create_vm\.esxi_password.secret"
+(get-credential).password | ConvertFrom-SecureString | set-content "create_vm\.gmail_password.secret"
+```
+
 make a credentials.ps1 with the following lines
 
 ```ps1
 $global:USER = 'esxi user name'
-$global:PASSWORD = 'esxi user password'
 $global:SERVER = 'esxi ip or hostname if dns is set'
 $global:SERVICE_ACCOUNT_EMAIL_ADDRESS = "email address"
 $global:MANAGER_EMAIL_ADDRESS = "email address"
