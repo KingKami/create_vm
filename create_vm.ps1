@@ -25,7 +25,7 @@ function load_powercli() {
 }
 function connect_to_vcenter() {
     $credential = New-Object System.Management.Automation.PSCredential -ArgumentList $global:USER, $global:PASSWORD
-    Connect-VIServer -Credential $credential -Server $Server -Force
+    Connect-VIServer -Credential $credential -Server $global:SERVER -Force
 }
 
 function import_csv([string]$file) {
@@ -36,6 +36,16 @@ function import_csv([string]$file) {
 function create_log_file() {
     if (!(Test-Path $LOG_FILE_PATH)) {
         New-Item -path $global:CURRENT_DIRECTORY -name $global:LOG_FILE_NAME -type "file" | Out-Null
+    }
+}
+
+function check_if_vm_exist([string]$Name) {
+    $output = Get-VM $Name
+    if ($output -match $Name) {
+        return $true
+    }
+    else {
+        return $false
     }
 }
 
@@ -66,7 +76,7 @@ function send_mail([string]$email_body, [string]$email_receiver, [string]$email_
     else {
         $open_color_div = "<div class='success'>"
     }
-    
+
     if ($receiver -eq 0) {
         $template = Get-Content "templates\manager-template.html" -Raw -Encoding UTF8
         $cc = $global:TECHNICIAN_EMAIL_ADDRESS
@@ -82,8 +92,8 @@ function send_mail([string]$email_body, [string]$email_receiver, [string]$email_
     else {
         write_to_log "Failure while trying to choose the template to use"
     }
-    
-    
+
+
     $From = $global:SERVICE_ACCOUNT_EMAIL_ADDRESS
     $To = $email_receiver
     $Subject = $email_object
@@ -94,22 +104,22 @@ function send_mail([string]$email_body, [string]$email_receiver, [string]$email_
     $credential = New-Object System.Management.Automation.PSCredential -ArgumentList `
         $global:SERVICE_ACCOUNT_EMAIL_ADDRESS, `
         $global:SERVICE_ACCOUNT_EMAIL_PASSWORD
-    
-        try {
-            Send-MailMessage `
-                -From $From `
-                -to $To `
-                -Cc $cc `
-                -Subject $Subject `
-                -Body $Body `
-                -SmtpServer $SMTPServer `
-                -port $SMTPPort `
-                -Encoding $encodingMail `
-                -BodyAsHtml `
-                -Credential $credential `
-                -UseSsl
-            write_to_log "successful attempt to send email to $To"
-        }
+
+    try {
+        Send-MailMessage `
+            -From $From `
+            -to $To `
+            -Cc $cc `
+            -Subject $Subject `
+            -Body $Body `
+            -SmtpServer $SMTPServer `
+            -port $SMTPPort `
+            -Encoding $encodingMail `
+            -BodyAsHtml `
+            -Credential $credential `
+            -UseSsl
+        write_to_log "successful attempt to send email to $To"
+    }
     catch {
         write_to_log "failure while attempting to send email to $To"
     }
@@ -130,9 +140,16 @@ function create_vm_from_csv([Object[]]$csv_list) {
         $requester = $line.requested_by
         $description = "VM created on $date_time for $requester"
         $global:REQUESTER_EMAIL_ADDRESS = $line.requester_email
-        $vm_specs = "Name: $Name VMHost: $VMHost Datastore: $Datastore DiskMB: $DiskMB MemoryMB: $MemoryMB NumCpu: $NumCpu DiskStorageFormat: $DiskStorageFormat"
-        
-        
+        $vm_specs = "`
+            Name: $Name `
+            VMHost: $VMHost `
+            Datastore: $Datastore `
+            DiskMB: $DiskMB `
+            MemoryMB: $MemoryMB `
+            NumCpu: $NumCpu `
+            DiskStorageFormat: $DiskStorageFormat`
+        "
+
         do {
             #Clear-Host
             write_to_log "$Name will be created with the following specs: $vm_specs"
@@ -142,66 +159,73 @@ function create_vm_from_csv([Object[]]$csv_list) {
             Write-Host "Enter yes or No:" -ForegroundColor Yellow -NoNewline
             $choice = Read-Host
             $choice = $choice.ToUpper()
-            if($choice -like "YES" -or $choice -like "NO"){
+            if ($choice -like "YES" -or $choice -like "NO") {
                 $ok = $true
-            }else{
+            }
+            else {
                 $ok = $false
             }
         } while ($ok -eq $false)
 
-        if ($choice -like "YES"){
+        if ($choice -like "YES") {
             write_to_log "Starting $Name creation process`n"
-            if (New-VM 	`
-                    -Name  $Name `
-                    -VMHost  $VMHost `
-                    -Datastore  $Datastore `
-                    -DiskMB  $DiskMB `
-                    -MemoryMB  $MemoryMB `
-                    -NumCpu  $NumCpu `
-                    -DiskStorageFormat  $DiskStorageFormat `
-                    -Notes $description `
-                    -RunAsync) {
-                write_to_log "successfully created vm $Name"
-                $vm_specs = "`
-                    <ul><li>Name: $Name</li><li>`
-                    VMHost: $VMHost</li><li>`
-                    Datastore: $Datastore</li><li>`
-                    DiskMB: $DiskMB</li><li>`
-                    MemoryMB: $MemoryMB</li><li>`
-                    NumCpu: $NumCpu</li><li>`
-                    DiskStorageFormat: $DiskStorageFormat</li></ul>`
-                "
-                $global:REQUESTER_EMAIL_BODY = "`
-                    <li>We successfully created vm `
-                    $Name on $date_time `
-                    with the following specs: `
-                    $vm_specs</li>`
-                "
-                $global:MANAGER_EMAIL_BODY += "`
-                    <li>We successfully created vm `
-                    $name on $date_time `
-                    for $requester `
-                    with the following specs: `n`t$vm_specs</li>`
-                " 
-                send_mail `
-                    $global:REQUESTER_EMAIL_BODY  `
-                    $global:REQUESTER_EMAIL_ADDRESS  `
-                    "$Name is ready!" `
-                    $global:REQUESTER_FLAG
-                
+
+            if (!(check_if_vm_exist $Name )) {
+                if (New-VM 	`
+                        -Name  $Name `
+                        -VMHost  $VMHost `
+                        -Datastore  $Datastore `
+                        -DiskMB  $DiskMB `
+                        -MemoryMB  $MemoryMB `
+                        -NumCpu  $NumCpu `
+                        -DiskStorageFormat  $DiskStorageFormat `
+                        -Notes $description `
+                        -RunAsync) {
+                    write_to_log "successfully created vm $Name"
+                    $vm_specs = "`
+                        <ul><li>Name: $Name</li><li>`
+                        VMHost: $VMHost</li><li>`
+                        Datastore: $Datastore</li><li>`
+                        DiskMB: $DiskMB</li><li>`
+                        MemoryMB: $MemoryMB</li><li>`
+                        NumCpu: $NumCpu</li><li>`
+                        DiskStorageFormat: $DiskStorageFormat</li></ul>`
+                    "
+                    $global:REQUESTER_EMAIL_BODY = "`
+                        <li>We successfully created vm `
+                        $Name on $date_time `
+                        with the following specs: `
+                        $vm_specs</li>`
+                    "
+                    $global:MANAGER_EMAIL_BODY += "`
+                        <li>We successfully created vm `
+                        $name on $date_time `
+                        for $requester `
+                        with the following specs: `n`t$vm_specs</li>`
+                    "
+                    send_mail `
+                        $global:REQUESTER_EMAIL_BODY  `
+                        $global:REQUESTER_EMAIL_ADDRESS  `
+                        "$Name is ready!" `
+                        $global:REQUESTER_FLAG
+
                     $return += 1
+                }
+                else {
+                    write_to_log "failure while creating vm $Name"
+                }
             }
             else {
-                write_to_log "failure while creating vm $Name"
+                write_to_log "$name exist"
             }
-        }elseif ($choice -like "NO") {
+        }
+        elseif ($choice -like "NO") {
             write_to_log "user choosed to skip vm $Name"
         }
-        
+
         if (!$Error[0]) {
             write_to_log $Error[0]
         }
-
     }
     return $return
 }
@@ -221,13 +245,21 @@ function main() {
                 write_to_log "Successfully imported csv file"
                 $returned_val = create_vm_from_csv($list)
                 write_to_log "Successfully created $returned_val vm out of $global:NUMBER_OF_VM_TO_CREATE"
-                $global:MANAGER_EMAIL_BODY += "`n`nSuccessfully created $returned_val vm out of $global:NUMBER_OF_VM_TO_CREATE"
-                send_mail $global:MANAGER_EMAIL_BODY  $global:MANAGER_EMAIL_ADDRESS  "Detailed report on VM creations" $global:MANAGER_FLAG
+                $global:MANAGER_EMAIL_BODY += "`
+                    `n`nSuccessfully created `
+                    $returned_val vm out of `
+                    $global:NUMBER_OF_VM_TO_CREATE`
+                "
+                send_mail `
+                    $global:MANAGER_EMAIL_BODY  `
+                    $global:MANAGER_EMAIL_ADDRESS  `
+                    "Detailed report on VM creations" `
+                    $global:MANAGER_FLAG
                 Exit-PSSession
             }
         }
         else {
-            write_to_log "connexion failed"
+            write_to_log "Failure while connecting to $global:SERVER"
             Exit-PSSession
         }
     }
